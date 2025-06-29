@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -153,6 +154,10 @@ dmypy.json
 # Downloaded videos (keep downloads directory structure but ignore content)
 downloads/*
 !downloads/.gitkeep
+
+# Output videos (keep output directory structure but ignore content)
+output/*
+!output/.gitkeep
 
 # Output videos and temporary files
 *.mp4
@@ -319,6 +324,10 @@ credentials.json
 *.lprof
 .prof/
 
+# Debug directories
+*_debug/
+
 # Keep important empty directories
 !downloads/.gitkeep
+!output/.gitkeep
 !logs/.gitkeep

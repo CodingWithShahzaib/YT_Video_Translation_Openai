@@ -4,15 +4,17 @@ A Python application that automatically translates English videos to Hindi using
 
 ## 🎯 Features
 
-- **YouTube Video Support**: Download and translate videos directly from YouTube URLs
+- **YouTube Video Support**: Download and translate videos directly from YouTube URLs in high quality (up to 1080p)
+- **Automatic Filename Generation**: Smart output filenames based on original video title with language suffix
 - **Automatic Audio Extraction**: Extracts audio from video files using FFmpeg
 - **Speech-to-Text**: Transcribes English audio using OpenAI Whisper
 - **Text Translation**: Translates English text to Hindi using GPT-4
 - **Text-to-Speech**: Converts Hindi text to natural-sounding speech using OpenAI TTS
-- **Video Processing**: Replaces original audio with translated audio while preserving video quality
+- **Audio Duration Matching**: Automatically adjusts translated audio to match original video length
+- **Video Processing**: Replaces original audio with synchronized translated audio while preserving video quality
 - **Multiple Voice Options**: Choose from 6 different voice models
 - **Multi-language Support**: Translate to any language supported by OpenAI
-- **Debugging Support**: Option to keep intermediate files for troubleshooting
+- **Organized Output**: Saves videos to organized output directory with debug subdirectories
 
 ## 🏗️ Architecture
 
@@ -21,17 +23,21 @@ Input Source (Video File or YouTube URL)
     ↓
 1. YouTube Download (if URL) - yt-dlp
     ↓
-2. Audio Extraction (FFmpeg)
+2. Duration Analysis (FFmpeg)
     ↓
-3. Speech-to-Text (Whisper)
+3. Audio Extraction (FFmpeg)
     ↓
-4. Text Translation (GPT-4)
+4. Speech-to-Text (Whisper)
     ↓
-5. Text-to-Speech (OpenAI TTS)
+5. Text Translation (GPT-4)
     ↓
-6. Audio Replacement (FFmpeg)
+6. Text-to-Speech (OpenAI TTS)
     ↓
-Output Video (Hindi)
+7. Audio Duration Matching (FFmpeg)
+    ↓
+8. Audio Replacement (FFmpeg)
+    ↓
+Output Video (Hindi - Synchronized)
 ```
 
 ## 📋 Requirements
@@ -123,32 +129,41 @@ OPENAI_API_KEY=your_api_key_here
 
 ### YouTube Video Translation
 ```bash
-# Translate a YouTube video
-uv run python main.py "https://www.youtube.com/watch?v=VIDEO_ID" output_video.mp4
+# Translate a YouTube video (filename auto-generated)
+uv run python main.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
-# With custom voice and keep original
-uv run python main.py "https://youtu.be/VIDEO_ID" hindi_video.mp4 --voice nova --keep-temp
+# With custom voice and keep debug files
+uv run python main.py "https://youtu.be/VIDEO_ID" --voice nova --keep-temp
+
+# With custom output filename
+uv run python main.py "https://youtu.be/VIDEO_ID" custom_output.mp4
 ```
 
 ### Local Video Translation
 ```bash
-# Basic local file translation
-uv run python main.py input_video.mp4 output_video.mp4
+# Basic local file translation (filename auto-generated)
+uv run python main.py input_video.mp4
+
+# With custom output filename
+uv run python main.py input_video.mp4 custom_output.mp4
 ```
 
 ### Advanced Usage
 ```bash
-# Specify target language and voice
-uv run python main.py input_video.mp4 output_video.mp4 --language "Spanish" --voice "nova"
+# Specify target language and voice (auto-generated filename)
+uv run python main.py input_video.mp4 --language "Spanish" --voice "nova"
 
-# Keep temporary files for debugging
-uv run python main.py input_video.mp4 output_video.mp4 --keep-temp
+# Keep debug files for troubleshooting
+uv run python main.py input_video.mp4 --keep-temp
 
-# Save YouTube videos to specific directory
-uv run python main.py "https://youtube.com/watch?v=ID" output.mp4 --youtube-dir ./downloads
+# Save YouTube videos to specific directory with high quality
+uv run python main.py "https://youtube.com/watch?v=ID" --youtube-dir ./downloads
 
 # Use different API key
-uv run python main.py input_video.mp4 output_video.mp4 --api-key "your_api_key"
+uv run python main.py input_video.mp4 --api-key "your_api_key"
+
+# Custom output with specific directory
+uv run python main.py "https://youtu.be/ID" ./my_videos/custom_name.mp4
 ```
 
 ### YouTube URL Formats Supported
@@ -170,14 +185,14 @@ uv run python main.py input_video.mp4 output_video.mp4 --api-key "your_api_key"
 ```
 positional arguments:
   input_source          Path to the input English video file OR YouTube URL
-  output_video          Path to the output Hindi video file
+  output_video          Path to the output video file (optional - auto-generated if not provided)
 
 optional arguments:
   -h, --help            Show help message and exit
   --language LANGUAGE   Target language for translation (default: Hindi)
   --voice {alloy,echo,fable,onyx,nova,shimmer}
                         Voice model for text-to-speech (default: alloy)
-  --keep-temp           Keep temporary files for debugging
+  --keep-temp           Keep debug files for troubleshooting
   --api-key API_KEY     OpenAI API key (can also be set via OPENAI_API_KEY environment variable)
   --youtube-dir YOUTUBE_DIR
                         Directory to save downloaded YouTube videos (default: temporary directory)
@@ -194,6 +209,8 @@ en-to-hin-brainrot/
 ├── env.template         # Environment variables template
 ├── .gitignore           # Git ignore rules
 ├── .venv/               # Virtual environment (created by uv)
+├── downloads/           # Downloaded YouTube videos (if --youtube-dir used)
+├── output/              # Generated translated videos
 ├── check_requirements.py # System requirements checker
 ├── example_usage.py     # Usage examples including YouTube
 └── project_summary.py   # Project overview and verification
