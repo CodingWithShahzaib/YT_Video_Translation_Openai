@@ -27,6 +27,7 @@ dependencies = [
     "openai>=1.93.0",
     "python-dotenv>=1.1.1",
     "yt-dlp>=2025.6.25",
+    "PyQt6>=6.4.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ dev = [
 
 [project.scripts]
 video-translator = "main:main"
+video-translator-gui = "video_translator_gui:main"
 check-requirements = "check_requirements:main"
 
 [project.urls]

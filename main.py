@@ -394,6 +394,47 @@ class VideoTranslator:
             logger.error(f"Error converting text to speech: {str(e)}")
             raise
     
+    def mix_audio_with_background(self, video_path: str, new_speech_path: str, output_path: str, 
+                                 background_volume: float = 0.3, speech_volume: float = 1.0) -> None:
+        """Mix new speech audio with original background music from video."""
+        logger.info(f"Mixing speech audio with background music from {video_path}")
+        try:
+            video_input = ffmpeg.input(video_path)
+            speech_input = ffmpeg.input(new_speech_path)
+            
+            # Extract original audio and reduce its volume (for background music)
+            background_audio = video_input['a'].filter('volume', background_volume)
+            
+            # Adjust speech volume if needed
+            if speech_volume != 1.0:
+                speech_audio = speech_input['a'].filter('volume', speech_volume)
+            else:
+                speech_audio = speech_input['a']
+            
+            # Mix the background music with the new speech
+            mixed_audio = ffmpeg.filter([background_audio, speech_audio], 'amix', inputs=2, duration='longest')
+            
+            # Combine video with mixed audio
+            (
+                ffmpeg
+                .output(
+                    video_input['v'], 
+                    mixed_audio, 
+                    output_path,
+                    vcodec='copy',
+                    acodec='aac',
+                    strict='experimental'
+                )
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            
+            logger.info(f"Audio mixing completed. Output saved to {output_path}")
+        
+        except ffmpeg.Error as e:
+            logger.error(f"Error mixing audio: {e.stderr.decode()}")
+            raise
+
     def replace_audio(self, video_path: str, new_audio_path: str, output_path: str) -> None:
         """Replace video audio with new audio using FFmpeg."""
         logger.info(f"Replacing audio in {video_path} with {new_audio_path}")
@@ -449,9 +490,24 @@ class VideoTranslator:
         target_language: str = "Hindi",
         voice: str = "alloy",
         keep_temp_files: bool = False,
-        youtube_download_dir: str = None
+        youtube_download_dir: str = None,
+        mix_with_background: bool = False,
+        background_volume: float = 0.3,
+        speech_volume: float = 1.0
     ) -> str:
-        """Complete video translation pipeline supporting both local files and YouTube URLs."""
+        """Complete video translation pipeline supporting both local files and YouTube URLs.
+        
+        Args:
+            input_source: Path to video file or YouTube URL
+            output_video: Path for output video (auto-generated if None)
+            target_language: Language to translate to (default: Hindi)
+            voice: OpenAI TTS voice model (default: alloy)
+            keep_temp_files: Keep intermediate files for debugging (default: False)
+            youtube_download_dir: Directory to save downloaded YouTube videos (default: temp)
+            mix_with_background: Mix speech with original background music instead of replacing (default: False)
+            background_volume: Volume level for background music when mixing (0.0-1.0, default: 0.3)
+            speech_volume: Volume level for translated speech when mixing (0.0-1.0, default: 1.0)
+        """
         logger.info(f"Starting video translation: {input_source}")
         
         # Keep track of temporary files to clean up (for non-temp directory downloads)
@@ -513,8 +569,13 @@ class VideoTranslator:
                 logger.info("Adjusting audio duration to match original video...")
                 self.adjust_audio_duration(str(hindi_audio), str(adjusted_hindi_audio), original_duration)
                 
-                # Step 7: Replace original audio with duration-matched translated audio
-                self.replace_audio(input_video, str(adjusted_hindi_audio), output_video)
+                # Step 7: Replace or mix original audio with duration-matched translated audio
+                if mix_with_background:
+                    logger.info("Mixing translated audio with original background music...")
+                    self.mix_audio_with_background(input_video, str(adjusted_hindi_audio), output_video, 
+                                                 background_volume, speech_volume)
+                else:
+                    self.replace_audio(input_video, str(adjusted_hindi_audio), output_video)
                 
                 # Optionally keep temporary files for debugging
                 if keep_temp_files:
@@ -625,6 +686,23 @@ def main():
         "--youtube-dir",
         help="Directory to save downloaded YouTube videos (default: temporary directory)"
     )
+    parser.add_argument(
+        "--mix-background",
+        action="store_true",
+        help="Mix translated speech with original background music instead of replacing audio completely"
+    )
+    parser.add_argument(
+        "--background-volume",
+        type=float,
+        default=0.3,
+        help="Volume level for background music when mixing (0.0 to 1.0, default: 0.3)"
+    )
+    parser.add_argument(
+        "--speech-volume",
+        type=float,
+        default=1.0,
+        help="Volume level for translated speech when mixing (0.0 to 1.0, default: 1.0)"
+    )
     
     args = parser.parse_args()
     
@@ -639,7 +717,10 @@ def main():
             target_language=args.language,
             voice=args.voice,
             keep_temp_files=args.keep_temp,
-            youtube_download_dir=args.youtube_dir
+            youtube_download_dir=args.youtube_dir,
+            mix_with_background=args.mix_background,
+            background_volume=args.background_volume,
+            speech_volume=args.speech_volume
         )
         
         print(f"✅ Translation completed!")

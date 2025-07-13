@@ -55,6 +55,195 @@ def example_basic_usage():
         return False
 
 
+def example_audio_mixing():
+    """Example of video translation with background music preservation."""
+    print("🎵 Audio Mixing Example - Keep Background Music")
+    print("=" * 50)
+    
+    # Initialize translator
+    try:
+        translator = VideoTranslator()
+        print("✅ VideoTranslator initialized successfully")
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        print("💡 Make sure to set OPENAI_API_KEY environment variable")
+        return False
+    
+    # Example video paths
+    input_video = "music_video_english.mp4"
+    output_video = "music_video_hindi_mixed.mp4"
+    
+    # Check if input file exists
+    if not Path(input_video).exists():
+        print(f"📁 Input video not found: {input_video}")
+        print("💡 Please provide a valid English video file with background music")
+        return False
+    
+    try:
+        # Translate the video with background music mixing
+        translator.translate_video(
+            input_source=input_video,
+            output_video=output_video,
+            target_language="Hindi",
+            voice="shimmer",  # Soft voice works well with background music
+            keep_temp_files=True,
+            mix_with_background=True,    # Enable audio mixing
+            background_volume=0.3,       # Keep background music at 30% volume
+            speech_volume=1.0           # Keep speech at full volume
+        )
+        
+        print(f"🎉 Translation with background music completed! Output: {output_video}")
+        print("🎵 The output video now contains both the translated speech and original background music")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error during translation: {e}")
+        return False
+
+
+def example_youtube_with_music():
+    """Example of YouTube video translation with background music preservation."""
+    print("🎵 YouTube Video Translation with Background Music")
+    print("=" * 55)
+    
+    # Initialize translator
+    try:
+        translator = VideoTranslator()
+        print("✅ VideoTranslator initialized successfully")
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        print("💡 Make sure to set OPENAI_API_KEY environment variable")
+        return False
+    
+    # Example YouTube URL (replace with actual video)
+    youtube_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    
+    try:
+        # Translate YouTube video with background music mixing
+        output_path = translator.translate_video(
+            input_source=youtube_url,
+            target_language="Hindi",
+            voice="nova",
+            keep_temp_files=True,
+            mix_with_background=True,     # Keep background music
+            background_volume=0.25,       # Lower background music volume
+            speech_volume=1.2,           # Slightly boost speech volume
+            youtube_download_dir="./downloads"  # Keep downloaded video
+        )
+        
+        print(f"🎉 YouTube translation with background music completed!")
+        print(f"📁 Output: {output_path}")
+        print("🎵 The video now has Hindi speech mixed with original background music")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error during YouTube translation: {e}")
+        return False
+
+
+def example_volume_adjustment():
+    """Example showing different volume mixing options."""
+    print("🔊 Volume Adjustment Examples")
+    print("=" * 30)
+    
+    # Initialize translator
+    try:
+        translator = VideoTranslator()
+        print("✅ VideoTranslator initialized successfully")
+    except ValueError as e:
+        print(f"❌ Error: {e}")
+        return False
+    
+    input_video = "sample_with_music.mp4"
+    
+    if not Path(input_video).exists():
+        print(f"📁 Input video not found: {input_video}")
+        print("💡 Please provide a valid video file")
+        return False
+    
+    # Example 1: Subtle background music
+    print("\n🎵 Example 1: Subtle background music (20% volume)")
+    try:
+        translator.translate_video(
+            input_source=input_video,
+            output_video="output_subtle_music.mp4",
+            mix_with_background=True,
+            background_volume=0.2,  # Very quiet background
+            speech_volume=1.0
+        )
+        print("✅ Subtle background version created")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    
+    # Example 2: Balanced mix
+    print("\n🎵 Example 2: Balanced mix (40% background, 80% speech)")
+    try:
+        translator.translate_video(
+            input_source=input_video,
+            output_video="output_balanced_mix.mp4",
+            mix_with_background=True,
+            background_volume=0.4,
+            speech_volume=0.8
+        )
+        print("✅ Balanced mix version created")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    
+    # Example 3: Music-focused mix
+    print("\n🎵 Example 3: Music-focused mix (60% background, 90% speech)")
+    try:
+        translator.translate_video(
+            input_source=input_video,
+            output_video="output_music_focused.mp4",
+            mix_with_background=True,
+            background_volume=0.6,
+            speech_volume=0.9
+        )
+        print("✅ Music-focused version created")
+    except Exception as e:
+        print(f"❌ Error: {e}")
+    
+    return True
+
+
+def example_gui_launcher():
+    """Example of launching the GUI programmatically."""
+    print("🖥️ GUI Launcher Example")
+    print("=" * 30)
+    
+    try:
+        # Check if PyQt6 is available
+        import PyQt6
+        print("✅ PyQt6 is available")
+        
+        # Option 1: Launch GUI directly
+        print("\n🚀 To launch the GUI, you can:")
+        print("1. Run: uv run python run_gui.py")
+        print("2. Or use: video-translator-gui (if installed)")
+        print("3. Or programmatically launch it:")
+        
+        # Show programmatic launch example
+        print("\n📝 Programmatic launch example:")
+        print("```python")
+        print("from video_translator_gui import main as gui_main")
+        print("gui_main()  # This will open the GUI")
+        print("```")
+        
+        # Don't actually launch GUI in this example
+        print("\n💡 GUI features include:")
+        print("   • Drag & drop file support")
+        print("   • Real-time progress tracking")
+        print("   • Audio mixing controls")
+        print("   • YouTube URL support")
+        print("   • Settings persistence")
+        
+        return True
+        
+    except ImportError:
+        print("❌ PyQt6 not found. Install with: pip install PyQt6")
+        return False
+
+
 def example_youtube_translation():
     """Example of translating YouTube videos."""
     print("🎥 YouTube Video Translation Example")
@@ -364,6 +553,10 @@ def main():
     
     examples = [
         ("Basic Usage", example_basic_usage),
+        ("Audio Mixing (Keep Background Music)", example_audio_mixing),
+        ("YouTube with Background Music", example_youtube_with_music),
+        ("Volume Adjustment Examples", example_volume_adjustment),
+        ("GUI Launcher", example_gui_launcher),
         ("YouTube Translation", example_youtube_translation),
         ("Batch Processing", example_batch_processing),
         ("Multi-language", example_different_languages),

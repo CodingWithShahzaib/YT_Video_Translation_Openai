@@ -4,6 +4,8 @@ A Python application that automatically translates English videos to Hindi using
 
 ## 🎯 Features
 
+- **Modern GUI Interface**: Intuitive PyQt6-based graphical user interface with drag-and-drop support
+- **Command-Line Interface**: Full-featured CLI for automation and scripting
 - **YouTube Video Support**: Download and translate videos directly from YouTube URLs in high quality (up to 1080p)
 - **Automatic Filename Generation**: Smart output filenames based on original video title with language suffix
 - **Automatic Audio Extraction**: Extracts audio from video files using FFmpeg
@@ -11,9 +13,11 @@ A Python application that automatically translates English videos to Hindi using
 - **Text Translation**: Translates English text to Hindi using GPT-4
 - **Text-to-Speech**: Converts Hindi text to natural-sounding speech using OpenAI TTS
 - **Audio Duration Matching**: Automatically adjusts translated audio to match original video length
+- **Background Music Preservation**: Option to mix translated speech with original background music
 - **Video Processing**: Replaces original audio with synchronized translated audio while preserving video quality
 - **Multiple Voice Options**: Choose from 6 different voice models
 - **Multi-language Support**: Translate to any language supported by OpenAI
+- **Real-time Progress Tracking**: Live progress updates and logging
 - **Organized Output**: Saves videos to organized output directory with debug subdirectories
 
 ## 🏗️ Architecture
@@ -53,6 +57,7 @@ Output Video (Hindi - Synchronized)
 - `ffmpeg-python>=0.2.0` - Python wrapper for FFmpeg
 - `yt-dlp>=2025.6.25` - YouTube video downloader
 - `python-dotenv>=1.1.1` - Environment file loader
+- `PyQt6>=6.4.0` - GUI framework (for graphical interface)
 
 ## 🚀 Installation
 
@@ -94,8 +99,10 @@ uv sync
 
 Alternatively, using pip:
 ```bash
-pip install openai ffmpeg-python yt-dlp python-dotenv
+pip install openai ffmpeg-python yt-dlp python-dotenv PyQt6
 ```
+
+**Note**: The GUI application requires PyQt6. If you only plan to use the command-line interface, you can skip PyQt6 installation.
 
 ### 4. Set Up OpenAI API Key
 
@@ -127,6 +134,31 @@ OPENAI_API_KEY=your_api_key_here
 
 ## 🎬 Usage
 
+### GUI Application (Recommended)
+
+For the easiest experience, use the modern graphical interface:
+
+```bash
+# Launch the GUI application
+uv run python run_gui.py
+
+# Or use the script entry point (after installation)
+video-translator-gui
+```
+
+**GUI Features:**
+- **Drag & Drop**: Simply drag video files into the application
+- **YouTube Support**: Paste YouTube URLs directly into the input field
+- **Visual Progress**: Real-time progress tracking with detailed logs
+- **Audio Mixing Controls**: Interactive sliders for background music and speech volume
+- **Settings Persistence**: Automatically saves your preferences
+- **File Browser**: Easy file selection for input and output
+- **Error Handling**: User-friendly error messages and recovery options
+
+### Command Line Interface
+
+For automation and scripting, use the command-line interface:
+
 ### YouTube Video Translation
 ```bash
 # Translate a YouTube video (filename auto-generated)
@@ -152,6 +184,12 @@ uv run python main.py input_video.mp4 custom_output.mp4
 ```bash
 # Specify target language and voice (auto-generated filename)
 uv run python main.py input_video.mp4 --language "Spanish" --voice "nova"
+
+# Keep original background music while adding translated speech
+uv run python main.py input_video.mp4 --mix-background --background-volume 0.3 --speech-volume 1.0
+
+# YouTube video with background music preservation
+uv run python main.py "https://youtu.be/ID" --mix-background --background-volume 0.25 --speech-volume 1.2
 
 # Keep debug files for troubleshooting
 uv run python main.py input_video.mp4 --keep-temp
@@ -181,6 +219,26 @@ uv run python main.py "https://youtu.be/ID" ./my_videos/custom_name.mp4
 - `nova` - Young, energetic
 - `shimmer` - Soft and warm
 
+### Audio Mixing Feature
+The `--mix-background` option allows you to preserve the original background music while adding translated speech:
+
+```bash
+# Basic audio mixing - keeps background music at 30% volume
+uv run python main.py input_video.mp4 --mix-background
+
+# Custom volume levels - quieter background, louder speech
+uv run python main.py input_video.mp4 --mix-background --background-volume 0.2 --speech-volume 1.2
+
+# Balanced mix for music videos
+uv run python main.py music_video.mp4 --mix-background --background-volume 0.4 --speech-volume 0.9
+```
+
+**Volume Guidelines:**
+- **Background Volume**: 0.1-0.5 (10%-50%) works best for most content
+- **Speech Volume**: 0.8-1.2 (80%-120%) ensures clear dialogue
+- **Music Videos**: Use higher background volume (0.4-0.6) to preserve musical experience
+- **Educational Content**: Use lower background volume (0.1-0.3) to prioritize speech clarity
+
 ### Command Line Arguments
 ```
 positional arguments:
@@ -196,24 +254,31 @@ optional arguments:
   --api-key API_KEY     OpenAI API key (can also be set via OPENAI_API_KEY environment variable)
   --youtube-dir YOUTUBE_DIR
                         Directory to save downloaded YouTube videos (default: temporary directory)
+  --mix-background      Mix translated speech with original background music instead of replacing audio completely
+  --background-volume BACKGROUND_VOLUME
+                        Volume level for background music when mixing (0.0 to 1.0, default: 0.3)
+  --speech-volume SPEECH_VOLUME
+                        Volume level for translated speech when mixing (0.0 to 1.0, default: 1.0)
 ```
 
 ## 📁 Project Structure
 
 ```
 en-to-hin-brainrot/
-├── main.py              # Main application script with YouTube support
-├── pyproject.toml        # Project configuration and dependencies
-├── uv.lock              # Lock file for exact dependency versions
-├── README.md            # This file
-├── env.template         # Environment variables template
-├── .gitignore           # Git ignore rules
-├── .venv/               # Virtual environment (created by uv)
-├── downloads/           # Downloaded YouTube videos (if --youtube-dir used)
-├── output/              # Generated translated videos
-├── check_requirements.py # System requirements checker
-├── example_usage.py     # Usage examples including YouTube
-└── project_summary.py   # Project overview and verification
+├── main.py                  # Main CLI application script
+├── video_translator_gui.py  # Modern PyQt6 GUI application
+├── run_gui.py              # GUI launcher script
+├── pyproject.toml          # Project configuration and dependencies
+├── uv.lock                 # Lock file for exact dependency versions
+├── README.md               # This file
+├── env.template            # Environment variables template
+├── .gitignore              # Git ignore rules
+├── .venv/                  # Virtual environment (created by uv)
+├── downloads/              # Downloaded YouTube videos (if --youtube-dir used)
+├── output/                 # Generated translated videos
+├── check_requirements.py  # System requirements checker
+├── example_usage.py        # Usage examples including YouTube
+└── project_summary.py     # Project overview and verification
 ```
 
 ## 🔧 Development
@@ -293,6 +358,29 @@ Use the `--keep-temp` flag to save intermediate files:
 - `original_[name].mp4` - Downloaded YouTube video (if applicable)
 
 ## 🎯 Usage Examples
+
+### GUI Examples
+
+**Basic Usage:**
+1. Launch the GUI: `uv run python run_gui.py`
+2. Drag and drop a video file or paste a YouTube URL
+3. Select your target language and voice
+4. Click "🚀 Start Translation"
+5. Monitor progress in real-time
+6. Play or open the translated video when complete
+
+**Audio Mixing:**
+1. Enable "Mix with original background music"
+2. Adjust background volume (10-50% recommended)
+3. Adjust speech volume (80-120% recommended)
+4. Perfect for music videos and content with important background audio
+
+**YouTube URLs:**
+- Simply paste any YouTube URL into the input field
+- The GUI automatically detects and handles YouTube links
+- Download progress is shown in the progress bar
+
+### Command Line Examples
 
 ### YouTube Examples
 ```bash
