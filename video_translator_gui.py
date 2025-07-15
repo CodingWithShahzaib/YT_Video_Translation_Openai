@@ -18,7 +18,8 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QSpinBox, QDoubleSpinBox,
     QTextEdit, QProgressBar, QFileDialog, QGroupBox, QCheckBox,
     QTabWidget, QGridLayout, QFrame, QScrollArea, QSplitter,
-    QMessageBox, QSystemTrayIcon, QMenu, QSlider, QSpacerItem, QSizePolicy
+    QMessageBox, QSystemTrayIcon, QMenu, QSlider, QSpacerItem, QSizePolicy,
+    QRadioButton, QButtonGroup
 )
 from PyQt6.QtCore import (
     Qt, QThread, pyqtSignal, QTimer, QSettings, QSize, QUrl
@@ -175,6 +176,10 @@ class VideoTranslatorGUI(QMainWindow):
         self.load_settings()
         self.setup_drag_drop()
         
+        # Connect radio buttons to update voices
+        self.openai_radio.toggled.connect(self.update_voice_list)
+        self.elevenlabs_radio.toggled.connect(self.update_voice_list)
+
     def init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle("🎬 Video Translator - AI-Powered Translation")
@@ -454,6 +459,19 @@ class VideoTranslatorGUI(QMainWindow):
         voice_row.addWidget(QLabel("Voice:"))
         voice_row.addWidget(self.voice_combo)
         output_layout.addLayout(voice_row)
+
+        # TTS Provider selection
+        tts_row = QHBoxLayout()
+        self.tts_group = QButtonGroup()
+        self.openai_radio = QRadioButton("OpenAI")
+        self.elevenlabs_radio = QRadioButton("ElevenLabs")
+        self.tts_group.addButton(self.openai_radio)
+        self.tts_group.addButton(self.elevenlabs_radio)
+        self.openai_radio.setChecked(True)
+        tts_row.addWidget(QLabel("TTS Provider:"))
+        tts_row.addWidget(self.openai_radio)
+        tts_row.addWidget(self.elevenlabs_radio)
+        output_layout.addLayout(tts_row)
         
         layout.addWidget(output_group)
         
@@ -512,9 +530,19 @@ class VideoTranslatorGUI(QMainWindow):
         self.api_key_field.setPlaceholderText("OpenAI API Key (optional if set in environment)")
         self.api_key_field.setEchoMode(QLineEdit.EchoMode.Password)
         
-        api_row.addWidget(QLabel("API Key:"))
+        api_row.addWidget(QLabel("OpenAI Key:"))
         api_row.addWidget(self.api_key_field)
         advanced_layout.addLayout(api_row)
+
+        # ElevenLabs API Key
+        el_api_row = QHBoxLayout()
+        self.elevenlabs_key_field = QLineEdit()
+        self.elevenlabs_key_field.setPlaceholderText("ElevenLabs API Key (required for ElevenLabs)")
+        self.elevenlabs_key_field.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        el_api_row.addWidget(QLabel("ElevenLabs Key:"))
+        el_api_row.addWidget(self.elevenlabs_key_field)
+        advanced_layout.addLayout(el_api_row)
         
         # Keep temp files
         self.keep_temp_check = QCheckBox("Keep temporary files for debugging")
@@ -570,14 +598,10 @@ class VideoTranslatorGUI(QMainWindow):
         # Control buttons
         button_layout = QHBoxLayout()
         
-        self.pause_button = ModernButton("⏸️ Pause")
-        self.pause_button.setEnabled(False)
-        
         self.cancel_button = ModernButton("⏹️ Cancel")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.cancel_translation)
         
-        button_layout.addWidget(self.pause_button)
         button_layout.addWidget(self.cancel_button)
         button_layout.addStretch()
         
@@ -663,13 +687,6 @@ class VideoTranslatorGUI(QMainWindow):
         exit_action.setShortcut('Ctrl+Q')
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        
-        # Tools menu
-        tools_menu = menubar.addMenu('Tools')
-        
-        settings_action = QAction('Settings', self)
-        settings_action.triggered.connect(self.open_settings)
-        tools_menu.addAction(settings_action)
         
         # Help menu
         help_menu = menubar.addMenu('Help')
@@ -768,7 +785,15 @@ class VideoTranslatorGUI(QMainWindow):
         if not self.current_input_source:
             QMessageBox.warning(self, "Warning", "Please select a video file or enter a YouTube URL.")
             return
-            
+
+        if self.elevenlabs_radio.isChecked():
+            tts_provider = "elevenlabs"
+            if not self.elevenlabs_key_field.text().strip():
+                QMessageBox.warning(self, "Warning", "ElevenLabs API key is required.")
+                return
+        else:
+            tts_provider = "openai"
+
         # Prepare parameters
         params = {
             'input_source': self.current_input_source,
@@ -780,7 +805,9 @@ class VideoTranslatorGUI(QMainWindow):
             'mix_with_background': self.mix_background_check.isChecked(),
             'background_volume': self.background_volume_slider.value() / 100.0,
             'speech_volume': self.speech_volume_slider.value() / 100.0,
-            'api_key': self.api_key_field.text().strip() or None
+            'api_key': self.api_key_field.text().strip() or None,
+            'tts_provider': tts_provider,
+            'elevenlabs_api_key': self.elevenlabs_key_field.text().strip() or None
         }
         
         # Disable controls
@@ -882,10 +909,6 @@ class VideoTranslatorGUI(QMainWindow):
                 f.write(self.log_text.toPlainText())
             self.log_message(f"📄 Log saved to: {file_path}")
             
-    def open_settings(self):
-        """Open settings dialog."""
-        QMessageBox.information(self, "Settings", "Settings panel coming soon!")
-        
     def show_about(self):
         """Show about dialog."""
         QMessageBox.about(self, "About", 
@@ -941,6 +964,18 @@ class VideoTranslatorGUI(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+    def update_voice_list(self):
+        if self.openai_radio.isChecked():
+            voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
+            default_voice = "shimmer"
+        else:
+            voices = ["Rachel", "Adam", "Charlie", "Daniel", "Bella", "Nicole"]
+            default_voice = "Rachel"
+        
+        self.voice_combo.clear()
+        self.voice_combo.addItems(voices)
+        self.voice_combo.setCurrentText(default_voice)
 
 
 def main():

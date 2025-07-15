@@ -32,6 +32,7 @@ import ffmpeg
 import yt_dlp
 from openai import OpenAI
 from dotenv import load_dotenv
+from elevenlabs.client import ElevenLabs
 
 # Load environment variables from .env file
 try:
@@ -51,13 +52,18 @@ logger = logging.getLogger(__name__)
 class VideoTranslator:
     """Main class for translating English videos to Hindi."""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, elevenlabs_api_key: Optional[str] = None):
         """Initialize the VideoTranslator with OpenAI client."""
         self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         if not self.api_key:
             raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY environment variable.")
         
         self.client = OpenAI(api_key=self.api_key)
+        self.elevenlabs_api_key = elevenlabs_api_key or os.getenv('ELEVENLABS_API_KEY')
+        if self.elevenlabs_api_key:
+            self.eleven_client = ElevenLabs(api_key=self.elevenlabs_api_key)
+        else:
+            self.eleven_client = None
         logger.info("VideoTranslator initialized successfully")
     
     def is_youtube_url(self, url: str) -> bool:
@@ -373,20 +379,37 @@ class VideoTranslator:
             logger.error(f"Error adjusting audio duration: {str(e)}")
             raise
 
-    def text_to_speech(self, text: str, output_path: str, voice: str = "alloy") -> None:
-        """Convert text to speech using OpenAI TTS."""
-        logger.info(f"Converting text to speech using voice '{voice}'")
+    def text_to_speech(self, text: str, output_path: str, voice: str = "alloy", tts_provider: str = "openai") -> None:
+        """Convert text to speech using selected TTS provider."""
+        logger.info(f"Converting text to speech using {tts_provider} with voice '{voice}'")
         try:
-            response = self.client.audio.speech.create(
-                model="tts-1",
-                voice=voice,
-                input=text,
-                response_format="mp3"
-            )
+            if tts_provider.lower() == "openai":
+                response = self.client.audio.speech.create(
+                    model="tts-1",
+                    voice=voice,
+                    input=text,
+                    response_format="mp3"
+                )
+                
+                with open(output_path, 'wb') as audio_file:
+                    for chunk in response.iter_bytes():
+                        audio_file.write(chunk)
             
-            with open(output_path, 'wb') as audio_file:
-                for chunk in response.iter_bytes():
-                    audio_file.write(chunk)
+            elif tts_provider.lower() == "elevenlabs":
+                if not self.eleven_client:
+                    raise ValueError("ElevenLabs client not initialized. API key required.")
+                
+                # No mapping needed; use voice directly
+                audio = self.eleven_client.generate(
+                    text=text,
+                    voice=voice,
+                    model="eleven_multilingual_v2"
+                )
+                
+                with open(output_path, 'wb') as audio_file:
+                    audio_file.write(audio)
+            else:
+                raise ValueError(f"Unsupported TTS provider: {tts_provider}")
             
             logger.info(f"Text-to-speech completed. Audio saved to {output_path}")
         
@@ -493,7 +516,9 @@ class VideoTranslator:
         youtube_download_dir: str = None,
         mix_with_background: bool = False,
         background_volume: float = 0.3,
-        speech_volume: float = 1.0
+        speech_volume: float = 1.0,
+        tts_provider: str = "openai",
+        elevenlabs_api_key: Optional[str] = None
     ) -> str:
         """Complete video translation pipeline supporting both local files and YouTube URLs.
         
@@ -563,7 +588,7 @@ class VideoTranslator:
                 logger.info(f"Translated text preview: {translated_text[:100]}...")
                 
                 # Step 5: Convert translated text to speech
-                self.text_to_speech(translated_text, str(hindi_audio), voice)
+                self.text_to_speech(translated_text, str(hindi_audio), voice, tts_provider)
                 
                 # Step 6: Adjust audio duration to match original video
                 logger.info("Adjusting audio duration to match original video...")
@@ -703,6 +728,16 @@ def main():
         default=1.0,
         help="Volume level for translated speech when mixing (0.0 to 1.0, default: 1.0)"
     )
+    parser.add_argument(
+        "--tts-provider",
+        default="openai",
+        choices=["openai", "elevenlabs"],
+        help="TTS provider to use (default: openai)"
+    )
+    parser.add_argument(
+        "--elevenlabs-api-key",
+        help="ElevenLabs API key (required if using ElevenLabs TTS)"
+    )
     
     args = parser.parse_args()
     
@@ -720,7 +755,9 @@ def main():
             youtube_download_dir=args.youtube_dir,
             mix_with_background=args.mix_background,
             background_volume=args.background_volume,
-            speech_volume=args.speech_volume
+            speech_volume=args.speech_volume,
+            tts_provider=args.tts_provider,
+            elevenlabs_api_key=args.elevenlabs_api_key
         )
         
         print(f"✅ Translation completed!")
