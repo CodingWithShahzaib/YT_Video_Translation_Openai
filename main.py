@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 class VideoTranslator:
     """Main class for translating English videos to Hindi."""
     
-    def __init__(self, api_key: Optional[str] = None, elevenlabs_api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, elevenlabs_api_key: Optional[str] = None, progress_callback=None):
         """Initialize the VideoTranslator with OpenAI client."""
         self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         if not self.api_key:
@@ -64,6 +64,7 @@ class VideoTranslator:
             self.eleven_client = ElevenLabs(api_key=self.elevenlabs_api_key)
         else:
             self.eleven_client = None
+        self.progress_callback = progress_callback
         logger.info("VideoTranslator initialized successfully")
     
     def is_youtube_url(self, url: str) -> bool:
@@ -506,6 +507,18 @@ class VideoTranslator:
         
         return str(output_dir / output_filename)
     
+    def generate_subtitles(self, original_text, translated_text, output_video):
+        import srt
+        from datetime import timedelta
+        subtitles = []
+        # Simple subtitle generation - split by sentences or something
+        # For now, dummy implementation
+        subtitles.append(srt.Subtitle(index=1, start=timedelta(seconds=0), end=timedelta(seconds=10), content=translated_text))
+        subtitle_path = Path(output_video).with_suffix('.srt')
+        with open(subtitle_path, 'w') as f:
+            f.write(srt.compose(subtitles))
+        return str(subtitle_path)
+
     def translate_video(
         self, 
         input_source: str, 
@@ -518,7 +531,8 @@ class VideoTranslator:
         background_volume: float = 0.3,
         speech_volume: float = 1.0,
         tts_provider: str = "openai",
-        elevenlabs_api_key: Optional[str] = None
+        elevenlabs_api_key: Optional[str] = None,
+        generate_subtitles: bool = False
     ) -> str:
         """Complete video translation pipeline supporting both local files and YouTube URLs.
         
@@ -573,28 +587,41 @@ class VideoTranslator:
             adjusted_hindi_audio = temp_path / "adjusted_hindi_audio.mp3"
             
             try:
-                # Step 1: Get original video duration for audio synchronization
+                if self.progress_callback:
+                    self.progress_callback("Step 1: Getting original video duration")
                 original_duration = self.get_video_duration(input_video)
                 
-                # Step 2: Extract audio from video
+                if self.progress_callback:
+                    self.progress_callback("Step 2: Extracting audio")
                 self.extract_audio(input_video, str(extracted_audio))
                 
-                # Step 3: Transcribe audio to English text
+                if self.progress_callback:
+                    self.progress_callback("Step 3: Transcribing audio")
                 english_text = self.transcribe_audio(str(extracted_audio))
                 logger.info(f"Transcribed text preview: {english_text[:100]}...")
                 
-                # Step 4: Translate English text to target language
+                if self.progress_callback:
+                    self.progress_callback("Step 4: Translating text")
                 translated_text = self.translate_text(english_text, target_language)
                 logger.info(f"Translated text preview: {translated_text[:100]}...")
                 
-                # Step 5: Convert translated text to speech
+                if self.progress_callback:
+                    self.progress_callback("Step 5: Generating speech")
                 self.text_to_speech(translated_text, str(hindi_audio), voice, tts_provider)
                 
-                # Step 6: Adjust audio duration to match original video
+                if self.progress_callback:
+                    self.progress_callback("Step 6: Adjusting audio duration")
                 logger.info("Adjusting audio duration to match original video...")
                 self.adjust_audio_duration(str(hindi_audio), str(adjusted_hindi_audio), original_duration)
                 
-                # Step 7: Replace or mix original audio with duration-matched translated audio
+                if generate_subtitles:
+                    if self.progress_callback:
+                        self.progress_callback("Generating subtitles")
+                    subtitle_path = self.generate_subtitles(english_text, translated_text, output_video)
+                    # Embed subtitles if needed
+
+                if self.progress_callback:
+                    self.progress_callback("Step 7: Processing final video")
                 if mix_with_background:
                     logger.info("Mixing translated audio with original background music...")
                     self.mix_audio_with_background(input_video, str(adjusted_hindi_audio), output_video, 
@@ -738,6 +765,11 @@ def main():
         "--elevenlabs-api-key",
         help="ElevenLabs API key (required if using ElevenLabs TTS)"
     )
+    parser.add_argument(
+        "--generate-subtitles",
+        action="store_true",
+        help="Generate SRT subtitles for the translated video"
+    )
     
     args = parser.parse_args()
     
@@ -757,7 +789,8 @@ def main():
             background_volume=args.background_volume,
             speech_volume=args.speech_volume,
             tts_provider=args.tts_provider,
-            elevenlabs_api_key=args.elevenlabs_api_key
+            elevenlabs_api_key=args.elevenlabs_api_key,
+            generate_subtitles=args.generate_subtitles
         )
         
         print(f"✅ Translation completed!")

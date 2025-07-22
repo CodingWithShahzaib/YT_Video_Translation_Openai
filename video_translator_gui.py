@@ -48,51 +48,36 @@ class WorkerThread(QThread):
     def run(self):
         """Execute the translation in a separate thread."""
         try:
-            # Initialize translator
-            self.progress_update.emit("🔧 Initializing translator...")
+            self.progress_update.emit("Initializing...")
             self.progress_percentage.emit(5)
             
             api_key = self.translator_params.get('api_key')
-            self.translator = VideoTranslator(api_key=api_key)
+            elevenlabs_api_key = self.translator_params.get('elevenlabs_api_key')
+            tts_provider = self.translator_params.get('tts_provider')
             
-            self.progress_update.emit("🎬 Starting video translation...")
-            self.progress_percentage.emit(10)
-            
-            # Prepare parameters
-            params = {
-                'input_source': self.translator_params['input_source'],
-                'output_video': self.translator_params.get('output_video'),
-                'target_language': self.translator_params.get('target_language', 'Hindi'),
-                'voice': self.translator_params.get('voice', 'alloy'),
-                'keep_temp_files': self.translator_params.get('keep_temp_files', False),
-                'youtube_download_dir': self.translator_params.get('youtube_download_dir'),
-                'mix_with_background': self.translator_params.get('mix_with_background', False),
-                'background_volume': self.translator_params.get('background_volume', 0.3),
-                'speech_volume': self.translator_params.get('speech_volume', 1.0)
-            }
-            
-            # Simulate progress updates for different stages
-            stages = [
-                (20, "📥 Processing input source..."),
-                (30, "🎵 Extracting audio..."),
-                (45, "🗣️ Transcribing speech..."),
-                (60, "🌐 Translating text..."),
-                (75, "🎤 Generating speech..."),
-                (90, "🔄 Processing audio..."),
-                (95, "🎬 Finalizing video...")
-            ]
-            
-            for progress, message in stages:
+            def progress_callback(message):
                 self.progress_update.emit(message)
-                self.progress_percentage.emit(progress)
-                self.msleep(500)  # Small delay for UI responsiveness
+                # Approximate percentage based on step
+                steps = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Step 6', 'Generating subtitles', 'Step 7']
+                for i, step in enumerate(steps):
+                    if step in message:
+                        self.progress_percentage.emit(10 + (i * 12))
+                        break
             
-            # Execute translation
-            output_path = self.translator.translate_video(**params)
+            self.translator = VideoTranslator(
+                api_key=api_key,
+                elevenlabs_api_key=elevenlabs_api_key if tts_provider == 'elevenlabs' else None,
+                progress_callback=progress_callback
+            )
+            
+            del self.translator_params['api_key']
+            if 'elevenlabs_api_key' in self.translator_params and tts_provider != 'elevenlabs':
+                del self.translator_params['elevenlabs_api_key']
+            
+            output_path = self.translator.translate_video(**self.translator_params)
             
             self.progress_percentage.emit(100)
             self.finished.emit(output_path)
-            
         except Exception as e:
             self.error.emit(str(e))
 
@@ -204,11 +189,17 @@ class VideoTranslatorGUI(QMainWindow):
         
         # Left panel - Input and Settings
         left_panel = self.create_left_panel()
-        splitter.addWidget(left_panel)
+        left_scroll = QScrollArea()
+        left_scroll.setWidgetResizable(True)
+        left_scroll.setWidget(left_panel)
+        splitter.addWidget(left_scroll)
         
         # Right panel - Progress and Output
         right_panel = self.create_right_panel()
-        splitter.addWidget(right_panel)
+        right_scroll = QScrollArea()
+        right_scroll.setWidgetResizable(True)
+        right_scroll.setWidget(right_panel)
+        splitter.addWidget(right_scroll)
         
         # Set splitter proportions
         splitter.setSizes([500, 700])
@@ -240,7 +231,7 @@ class VideoTranslatorGUI(QMainWindow):
                 border: 2px solid #dee2e6;
                 border-radius: 10px;
                 margin-top: 10px;
-                padding-top: 10px;
+                padding: 15px;
                 background: white;
                 color: black;
             }
@@ -387,6 +378,15 @@ class VideoTranslatorGUI(QMainWindow):
                 background: none;
             }
         """)
+        self.setStyleSheet("""
+            QMessageBox {
+                background-color: #f8f9fa;
+                color: black;
+            }
+            QMessageBox QLabel {
+                color: black;
+            }
+        """)
         
     def create_left_panel(self):
         """Create the left panel with input controls."""
@@ -403,6 +403,7 @@ class VideoTranslatorGUI(QMainWindow):
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("Enter YouTube URL or select video file...")
         self.input_field.textChanged.connect(self.on_input_changed)
+        self.input_field.setToolTip("Enter a YouTube URL or local video path")
         
         self.browse_button = ModernButton("📁 Browse")
         self.browse_button.clicked.connect(self.browse_input_file)
@@ -443,6 +444,7 @@ class VideoTranslatorGUI(QMainWindow):
             "Hindi", "Spanish", "French", "German", "Italian", "Portuguese",
             "Russian", "Japanese", "Korean", "Chinese", "Arabic", "Turkish"
         ])
+        self.language_combo.setToolTip("Select target translation language")
         
         lang_row.addWidget(QLabel("Language:"))
         lang_row.addWidget(self.language_combo)
@@ -455,6 +457,7 @@ class VideoTranslatorGUI(QMainWindow):
             "alloy", "echo", "fable", "onyx", "nova", "shimmer"
         ])
         self.voice_combo.setCurrentText("shimmer")
+        self.voice_combo.setToolTip("Select voice for text-to-speech")
         
         voice_row.addWidget(QLabel("Voice:"))
         voice_row.addWidget(self.voice_combo)
@@ -473,6 +476,11 @@ class VideoTranslatorGUI(QMainWindow):
         tts_row.addWidget(self.elevenlabs_radio)
         output_layout.addLayout(tts_row)
         
+        # Add subtitle checkbox in Output Settings
+        subtitle_check = QCheckBox("Generate subtitles")
+        output_layout.addWidget(subtitle_check)
+        self.subtitle_check = subtitle_check
+        
         layout.addWidget(output_group)
         
         # Audio Mixing Group
@@ -483,7 +491,7 @@ class VideoTranslatorGUI(QMainWindow):
         self.mix_background_check = QCheckBox("Mix with original background music")
         self.mix_background_check.setChecked(False)
         self.mix_background_check.toggled.connect(self.on_mix_background_toggled)
-        audio_layout.addWidget(self.mix_background_check)
+        self.mix_background_check.setToolTip("Mix translated audio with original background")
         
         # Volume controls
         self.volume_widget = QWidget()
@@ -807,7 +815,8 @@ class VideoTranslatorGUI(QMainWindow):
             'speech_volume': self.speech_volume_slider.value() / 100.0,
             'api_key': self.api_key_field.text().strip() or None,
             'tts_provider': tts_provider,
-            'elevenlabs_api_key': self.elevenlabs_key_field.text().strip() or None
+            'elevenlabs_api_key': self.elevenlabs_key_field.text().strip() or None,
+            'generate_subtitles': self.subtitle_check.isChecked()
         }
         
         # Disable controls
@@ -936,6 +945,10 @@ class VideoTranslatorGUI(QMainWindow):
         self.update_speech_volume_label(self.speech_volume_slider.value())
         self.on_mix_background_toggled(self.mix_background_check.isChecked())
         
+        # Load API keys
+        self.api_key_field.setText(self.settings.value('openai_api_key', ''))
+        self.elevenlabs_key_field.setText(self.settings.value('elevenlabs_api_key', ''))
+        
     def save_settings(self):
         """Save settings to QSettings."""
         self.settings.setValue('language', self.language_combo.currentText())
@@ -944,6 +957,10 @@ class VideoTranslatorGUI(QMainWindow):
         self.settings.setValue('background_volume', self.background_volume_slider.value())
         self.settings.setValue('speech_volume', self.speech_volume_slider.value())
         self.settings.setValue('keep_temp', self.keep_temp_check.isChecked())
+        
+        # Save API keys
+        self.settings.setValue('openai_api_key', self.api_key_field.text())
+        self.settings.setValue('elevenlabs_api_key', self.elevenlabs_key_field.text())
         
     def closeEvent(self, event):
         """Handle close event."""
@@ -990,6 +1007,20 @@ def main():
     except:
         pass
     
+    # Set light theme
+    app.setStyle('Fusion')
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor(248, 249, 250))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(0, 0, 0))
+    palette.setColor(QPalette.ColorRole.Base, QColor(255, 255, 255))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(248, 249, 250))
+    palette.setColor(QPalette.ColorRole.Text, QColor(0, 0, 0))
+    palette.setColor(QPalette.ColorRole.Button, QColor(248, 249, 250))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(0, 0, 0))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(76, 175, 80))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+    app.setPalette(palette)
+
     # Create and show main window
     window = VideoTranslatorGUI()
     window.show()
