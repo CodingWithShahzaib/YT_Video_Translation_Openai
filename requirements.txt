@@ -1,0 +1,10 @@
+fastapi==0.116.1
+uvicorn==0.35.0
+openai>=1.93.0
+ffmpeg-python>=0.2.0
+yt-dlp>=2025.6.25
+python-dotenv>=1.1.1
+PyQt6>=6.4.0
+elevenlabs>=2.7.1
+starlette==0.47.2
+srt==3.5.3
