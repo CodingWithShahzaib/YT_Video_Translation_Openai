@@ -51,6 +51,7 @@ def translate_latest():
         'description': description
     })
 
+
 @app.get('/download')
 def download():
     global LATEST_OUTPUT_PATH
