@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import shutil
+
 app = FastAPI()
 
 LATEST_OUTPUT_PATH = None
@@ -62,3 +64,21 @@ def download():
         media_type='video/mp4',
         filename=f'{LATEST_TITLE}.mp4'
     )
+
+@app.get('/clean-output')
+def clean_output():
+    output_dir = Path('../output').resolve() if not Path('output').is_dir() else Path('output').resolve()
+    if not output_dir.exists() or not output_dir.is_dir():
+        return JSONResponse({'error': 'Output directory does not exist.'}, status_code=404)
+    deleted_files = 0
+    for file in output_dir.iterdir():
+        try:
+            if file.is_file() or file.is_symlink():
+                file.unlink()
+                deleted_files += 1
+            elif file.is_dir():
+                shutil.rmtree(file)
+                deleted_files += 1
+        except Exception as e:
+            continue
+    return JSONResponse({'status': 'success', 'deleted_files': deleted_files})
