@@ -67,7 +67,7 @@ def download():
 
 @app.get('/clean-output')
 def clean_output():
-    output_dir = Path('../output').resolve() if not Path('output').is_dir() else Path('output').resolve()
+    output_dir = Path('output').resolve()
     if not output_dir.exists() or not output_dir.is_dir():
         return JSONResponse({'error': 'Output directory does not exist.'}, status_code=404)
     deleted_files = 0
